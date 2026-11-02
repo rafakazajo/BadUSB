@@ -1,0 +1,6 @@
+META linux util
+DELAY 1000
+CTRL ALT t
+DELAY 1200
+STRING loginctl lock-session 2>/dev/null || xdg-screensaver lock 2>/dev/null || gnome-screensaver-command --lock 2>/dev/null
+ENTER

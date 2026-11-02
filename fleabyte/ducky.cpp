@@ -3,6 +3,7 @@
 
 #include "USB.h"
 #include "USBHIDKeyboard.h"
+#include "USBHIDMouse.h"
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
@@ -10,6 +11,7 @@
 #include <freertos/task.h>
 
 static USBHIDKeyboard Keyboard;
+static USBHIDMouse Mouse;
 
 struct LayoutEntry {
   const char *code;
@@ -147,6 +149,17 @@ static bool lookupMod(const String &name, uint8_t &out) {
   return false;
 }
 
+// Shared by MOUSECLICK, MOUSEDOWN and MOUSEUP so the three don't each
+// repeat the same LEFT/RIGHT/MIDDLE parsing.
+static bool parseMouseButton(String name, uint8_t &out) {
+  name.trim();
+  name.toUpperCase();
+  if (name == "LEFT" || name.isEmpty()) { out = MOUSE_LEFT; return true; }
+  if (name == "RIGHT")  { out = MOUSE_RIGHT;  return true; }
+  if (name == "MIDDLE") { out = MOUSE_MIDDLE; return true; }
+  return false;
+}
+
 static void lock() { xSemaphoreTake(g_mutex, portMAX_DELAY); }
 static void unlock() { xSemaphoreGive(g_mutex); }
 
@@ -207,6 +220,41 @@ static int typeString(const String &text) {
     if (g_charDelay) vTaskDelay(pdMS_TO_TICKS(g_charDelay));
   }
   return skipped;
+}
+
+// A small fixed table instead of a map: this interpreter never needs more
+// than a handful of variables in one script, and a flat array keeps the
+// lookup trivial to read.
+struct DuckyVar {
+  String name;
+  String value;
+};
+static DuckyVar g_vars[8];
+static int g_varCount = 0;
+
+static void setVar(const String &name, const String &value) {
+  for (int i = 0; i < g_varCount; i++) {
+    if (g_vars[i].name == name) {
+      g_vars[i].value = value;
+      return;
+    }
+  }
+  if (g_varCount < 8) {
+    g_vars[g_varCount].name = name;
+    g_vars[g_varCount].value = value;
+    g_varCount++;
+  }
+}
+
+// Replaces every $name with its stored value. Unknown variables are left
+// as literal text ("$typo" stays "$typo") rather than silently becoming
+// empty, so a misspelled variable is obvious in the typed output.
+static String substituteVars(const String &text) {
+  String out = text;
+  for (int i = 0; i < g_varCount; i++) {
+    out.replace("$" + g_vars[i].name, g_vars[i].value);
+  }
+  return out;
 }
 
 static bool pressCombo(String tokens[], int count, String &err) {
@@ -289,7 +337,7 @@ static bool executeLine(const String &raw, String &err) {
   }
 
   if (cmdUpper == "STRING") {
-    int skipped = typeString(rest);
+    int skipped = typeString(substituteVars(rest));
     if (skipped > 0) {
       logLine("  ! skipped " + String(skipped) + " non-ASCII character(s)");
     }
@@ -297,8 +345,8 @@ static bool executeLine(const String &raw, String &err) {
   }
 
   if (cmdUpper == "STRINGLN") {
-    int skipped = typeString(rest);
-    if (skipped > 0) {
+    int skipped = typeString(substituteVars(rest));
+   if (skipped > 0) {
       logLine("  ! skipped " + String(skipped) + " non-ASCII character(s)");
     }
     Keyboard.press(KEY_RETURN);
@@ -345,6 +393,25 @@ static bool executeLine(const String &raw, String &err) {
     return true;
   }
 
+  if (cmdUpper == "VAR") {
+    int eq = rest.indexOf('=');
+    if (eq < 0) {
+      err = "VAR expects $name = value";
+      return false;
+    }
+    String name = rest.substring(0, eq);
+    String value = rest.substring(eq + 1);
+    name.trim();
+    value.trim();
+    if (name.startsWith("$")) name = name.substring(1);
+    if (name.isEmpty()) {
+      err = "VAR needs a name";
+      return false;
+    }
+    setVar(name, substituteVars(value));
+    return true;
+  }
+
   if (cmdUpper == "LAYOUT") {
     String code = rest;
     code.trim();
@@ -354,6 +421,56 @@ static bool executeLine(const String &raw, String &err) {
       return false;
     }
     logLine("  layout -> " + code);
+    return true;
+  }
+  
+    if (cmdUpper == "MOUSEMOVE") {
+    int sp2 = rest.indexOf(' ');
+    if (sp2 < 0) {
+      err = "MOUSEMOVE expects two numbers: dx dy";
+      return false;
+    }
+    int dx = constrain(rest.substring(0, sp2).toInt(), -127, 127);
+    int dy = constrain(rest.substring(sp2 + 1).toInt(), -127, 127);
+    Mouse.move(dx, dy);
+    return true;
+  }
+
+  if (cmdUpper == "MOUSECLICK") {
+    uint8_t b;
+    if (!parseMouseButton(rest, b)) {
+      err = "MOUSECLICK expects LEFT, RIGHT or MIDDLE";
+      return false;
+    }
+    Mouse.click(b);
+    return true;
+  }
+
+  if (cmdUpper == "MOUSEDOWN") {
+    uint8_t b;
+    if (!parseMouseButton(rest, b)) {
+      err = "MOUSEDOWN expects LEFT, RIGHT or MIDDLE";
+      return false;
+    }
+    Mouse.press(b);
+    return true;
+  }
+
+  if (cmdUpper == "MOUSEUP") {
+    uint8_t b;
+    if (!parseMouseButton(rest, b)) {
+      err = "MOUSEUP expects LEFT, RIGHT or MIDDLE";
+      return false;
+    }
+    Mouse.release(b);
+    return true;
+  }
+
+  // Positive scrolls up, negative scrolls down - matches the usual scroll
+  // wheel convention, though the exact feel can vary a little by OS/driver.
+  if (cmdUpper == "MOUSESCROLL") {
+    int amount = constrain(rest.toInt(), -127, 127);
+    Mouse.move(0, 0, amount);
     return true;
   }
 
@@ -393,16 +510,61 @@ static bool armingCountdown(uint16_t seconds) {
 // Takes the queued buffer rather than a String of it: at 16 kB a copy per
 // run is worth avoiding, and it would stay live for the whole execution.
 // The buffer is ours and freed by the caller, so lines are cut in place.
-static void runScript(char *script) {
+// Only "==" is supported on purpose: the comparison is always a plain
+// string match against a substituted value, nothing fancier.
+static bool evalCondition(const String &cond) {
+  int eq = cond.indexOf("==");
+  if (eq < 0) return false;
+  String left = cond.substring(0, eq);
+  String right = cond.substring(eq + 2);
+  left.trim();
+  right.trim();
+  if (right.length() >= 2 && right.startsWith("\"") && right.endsWith("\"")) {
+    right = right.substring(1, right.length() - 1);
+  }
+  return substituteVars(left) == substituteVars(right);
+}
+
+// Scans forward from just after an IF line, tracking nested IF/ENDIF pairs,
+// and returns the position right after the matching ELSE (if stopAtElse)
+// or ENDIF for the block the caller is currently inside. Line numbers are
+// not tracked here, so log messages during a skip are approximate - a
+// cosmetic gap, not a functional one, since execution itself resumes at
+// the right line either way.
+static int skipIfBlock(const String &script, int pos, bool stopAtElse) {
+  int depth = 0;
+  while (pos < (int)script.length()) {
+    int nl = script.indexOf('\n', pos);
+    String raw = (nl < 0) ? script.substring(pos) : script.substring(pos, nl);
+    int next = (nl < 0) ? script.length() : nl + 1;
+    raw.replace("\r", "");
+    raw.trim();
+    String upper = raw;
+    upper.toUpperCase();
+
+    if (upper == "IF" || upper.startsWith("IF ")) {
+      depth++;
+    } else if (upper == "ENDIF" || upper == "END_IF") {
+      if (depth == 0) return next;
+      depth--;
+    } else if (upper == "ELSE" && depth == 0 && stopAtElse) {
+      return next;
+    }
+    pos = next;
+  }
+  return pos;
+}
+
+static void runScript(const String &script) {
   g_defaultDelay = DEFAULT_LINE_DELAY_MS;
   g_charDelay = DEFAULT_CHAR_DELAY_MS;
+  g_varCount = 0;
 
-  size_t length = strlen(script);
   int total = 0;
-  for (size_t i = 0; i < length; i++) {
+  for (size_t i = 0; i < script.length(); i++) {
     if (script[i] == '\n') total++;
   }
-  if (length && script[length - 1] != '\n') total++;
+  if (script.length() && script[script.length() - 1] != '\n') total++;
 
   if (g_pendingDelay) {
     logLine("== armed, " + String(g_pendingDelay) + "s ==");
@@ -419,22 +581,15 @@ static void runScript(char *script) {
 
   String previousLine;
   int lineNo = 0;
-  size_t pos = 0;
+  int pos = 0;
   bool failed = false;
 
-  while (pos < length) {
+  while (pos < (int)script.length()) {
     if (g_abort) break;
 
-    char *line = script + pos;
-    char *nl = strchr(line, '\n');
-    if (nl) {
-      *nl = '\0';
-      pos = (size_t)(nl - script) + 1;
-    } else {
-      pos = length;
-    }
-
-    String raw(line);
+    int nl = script.indexOf('\n', pos);
+    String raw = (nl < 0) ? script.substring(pos) : script.substring(pos, nl);
+    pos = (nl < 0) ? script.length() : nl + 1;
     raw.replace("\r", "");
     lineNo++;
     setProgress(lineNo, total);
@@ -445,6 +600,24 @@ static void runScript(char *script) {
 
     String upper = trimmed;
     upper.toUpperCase();
+
+    if (upper == "IF" || upper.startsWith("IF ")) {
+      String cond = trimmed.substring(2);
+      cond.trim();
+      bool result = evalCondition(cond);
+      logLine("L" + String(lineNo) + " IF " + cond + " -> " + (result ? "true" : "false"));
+      if (!result) pos = skipIfBlock(script, pos, true);
+      continue;
+    }
+    if (upper == "ELSE") {
+      // Reached by falling through the true branch: skip its body.
+      pos = skipIfBlock(script, pos, false);
+      continue;
+    }
+    if (upper == "ENDIF" || upper == "END_IF") {
+      continue;
+    }
+
     if (upper == "REPEAT" || upper.startsWith("REPEAT ")) {
       int n = trimmed.substring(6).toInt();
       if (previousLine.isEmpty() || n <= 0) {
@@ -517,6 +690,7 @@ void duckyBegin() {
   g_queue = xQueueCreate(1, sizeof(char *));
   Keyboard.begin(KeyboardLayout_en_US);
   Keyboard.onEvent(onKeyboardLeds);
+  Mouse.begin();
   // Same priority as loopTask, which serves the HTTP requests on this core.
   // Above it, a payload preempts the web server and the page stops answering
   // for as long as the run lasts. Equal priority time-slices them per tick,

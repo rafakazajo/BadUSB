@@ -1,0 +1,3 @@
+META macos util
+DELAY 500
+CTRL COMMAND q

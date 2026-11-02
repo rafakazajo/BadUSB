@@ -1,0 +1,13 @@
+META linux broma
+DELAY 1000
+CTRL ALT t
+DELAY 1200
+STRING printf '[1;31m
+[  0.000000] Kernel panic - not syncing: VFS: Unable to mount root fs on unknown-block(0,0)
+[  0.001234] CPU: 0 PID: 1 Comm: init Tainted: P    B   W        6.1.0 #1
+[  0.002456] Call Trace:
+[  0.003678]  panic+0x12e/0x1b4
+[  0.004890]  mount_block_root+0x1f3/0x230
+[  0.006012]  prepare_namespace+0x131/0x170
+[0m' && sleep 8 && clear
+ENTER

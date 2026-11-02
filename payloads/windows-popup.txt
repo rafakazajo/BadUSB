@@ -1,0 +1,10 @@
+META windows broma
+REM Title: Fake Error Popup
+REM Description: Shows a fake critical error message box
+REM Edit the message text as you like
+
+DEFAULTDELAY 400
+GUI r
+DELAY 500
+STRING powershell -WindowStyle Hidden -Command "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.MessageBox]::Show('Tu ordenador tiene un virus.', 'ERROR CRITICO DEL SISTEMA', 'OK', 'Error')"
+ENTER

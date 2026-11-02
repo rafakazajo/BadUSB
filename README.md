@@ -1,88 +1,63 @@
-# Fleabyte
+# BadUSB — LilyGO T-Dongle-S3
 
-Modern BadUSB firmware for the LilyGO T-Dongle S3. Self-hosted web UI,
-twelve keyboard layouts, fully offline.
+Proyecto personal de BadUSB basado en el firmware [FleaByte](https://github.com/b3rt1ng/FleaByte) para el dispositivo **LilyGO T-Dongle-S3** (ESP32-S3).
 
-![Fleabyte status screen](screens/screen-idle.png)
+Incluye el firmware modificado, payloads DuckyScript propios y herramientas Python/Shell para gestionar los payloads desde la línea de comandos.
 
-Plug it in and the dongle brings up its own Wi-Fi network. Scan the code on
-its screen to join, open the page, pick the keyboard layout of the machine
-it is plugged into, and run a script. Nothing leaves the device and nothing
-needs installing.
+> **Aviso:** Este proyecto es de uso educativo y para entornos controlados. El uso de dispositivos BadUSB contra sistemas sin autorización es ilegal.
 
-## What it does
-
-* Keystroke scripting with a DuckyScript subset, from a web editor
-* Twelve keyboard layouts, switchable at runtime and mid-script
-* Payload library stored on the dongle, editable from the browser
-* Wi-Fi join code on the screen, so a phone connects without typing a key
-* Cancellable countdown before a payload starts
-* Host detection, so a payload can wait for the machine instead of guessing
-* microSD exposed to the host as a removable drive, with a file browser
-* One-shot arming that fires the script you are editing at the next plug-in
-* Status screen with run progress, and a light that reports what it is doing
-
-| | |
-|---|---|
-| ![Access](screens/screen-access.png) | ![Running](screens/screen-running.png) |
-| Scan to join, or read the credentials | Running a payload |
-
-## Scope of use
-
-Machines you own, or for which you hold written authorisation. This is a
-keystroke injection tool: it types into whatever it is plugged into.
-
-Execution is triggered from the web interface, or by arming a single run for
-the next plug-in from the bar under the editor. That arming is one shot and
-clears itself as it fires. Nothing else runs on plug-in, and the
-button on the dongle never starts a payload.
+---
 
 ## Hardware
 
-A LilyGO T-Dongle S3 and nothing else. A microSD card is optional, and only
-used by the USB drive feature.
+- **Dispositivo:** LilyGO T-Dongle-S3
+- **MCU:** ESP32-S3
+- **Flash:** 16 MB
+- **Firmware base:** FleaByte v0.4.1
 
-* [LilyGO store](https://lilygo.cc/products/t-dongle-s3)
-* [Amazon](https://www.amazon.fr/dp/B0BK9162QY)
-* [Alibaba](https://www.alibaba.com/pla/LILYGO-T-Dongle-S3-ESP32-S3-Development-Board-096_1601590830049.html)
+## Estructura
 
-It has to be the **S3**. LilyGO also sells a T-Dongle C5, and the ESP32-C5
-has no USB OTG controller: it can only present a serial port, never a
-keyboard. The same goes for the C3, C6 and H2. Among the parts LilyGO uses,
-only the S2, S3 and P4 can do this at all.
+    BadUSB/
+    ├── fleabyte/          Firmware (basado en FleaByte)
+    ├── tools/             Scripts Python y Shell para gestión
+    ├── payloads/          Payloads DuckyScript (48 scripts)
+    ├── DOCS.md            Documentación técnica del firmware
+    └── NOTES.md           Notas técnicas del hardware
 
-## Installing
+## Payloads
 
-**[Flash it from your browser](https://b3rt1ng.github.io/FleaByte/)**, in
-Chrome or Edge on a desktop. Nothing to install: hold the button while
-plugging the dongle in, click Install, pick the serial port.
+Los payloads están en `payloads/` organizados con el prefijo `windows-`, `linux-` o `macos-` y una línea `META <os> <categoría>` al inicio.
 
-Or take the image from a [release](../../releases) and write it yourself:
+Categorías: `broma`, `exfil`, `acceso`, `evasion`, `util`
 
-```sh
-esptool --chip esp32s3 --port /dev/ttyACM0 write-flash 0x0 firmware.bin
-```
+Los payloads que usan Telegram para exfiltración tienen `YOUR_BOT_TOKEN` y `YOUR_CHAT_ID` como placeholders. Sustitúyelos por tus valores antes de subirlos al dongle.
 
-Either way the image stops before the filesystem partition, so an update
-keeps saved payloads and settings.
+## Herramientas (`tools/`)
 
-## Documentation
+| Script | Descripción |
+|--------|-------------|
+| `build.sh` | Compila el firmware con arduino-cli |
+| `flash.sh` | Compila y flashea al dispositivo |
+| `create_payloads.py` | Crea y sube payloads nuevos al dongle |
+| `import_payloads.py` | Sube en bloque desde una carpeta local |
+| `export_payloads.py` | Exporta todos los payloads a un `.zip` |
+| `migrate_payloads.py` | Renombra payloads y actualiza líneas META |
+| `fix_payloads.py` | Corrige errores comunes en payloads existentes |
+| `release.sh` | Genera un binario flasheable en `release/` |
 
-* [DOCS.md](DOCS.md) covers building from source, the script commands, the
-  settings and the USB drive
-* [NOTES.md](NOTES.md) collects the hardware quirks worth knowing before
-  changing anything
+## Requisitos
 
-## Credits
+- [arduino-cli](https://arduino.github.io/arduino-cli/)
+- Plataforma `esp32:esp32` instalada
+- Python 3 (stdlib + `requests` para algunos scripts)
 
-Pin assignments and panel initialisation values come from
-[LilyGO's T-Dongle S3 examples](https://github.com/Xinyuan-LilyGO/T-Dongle-S3)
-(MIT). The display is driven through
-[Adafruit GFX](https://github.com/adafruit/Adafruit-GFX-Library) and
-[Adafruit ST7735](https://github.com/adafruit/Adafruit-ST7735-Library)
-(BSD). Keyboard layout tables and the QR encoder ship with the
-[ESP32 Arduino core](https://github.com/espressif/arduino-esp32).
+## Compilar y flashear
 
-## License
+    bash tools/build.sh   # Solo compilar
+    bash tools/flash.sh   # Compilar y flashear
 
-MIT, see [LICENSE](LICENSE).
+El primer flash requiere mantener pulsado el botón al conectar el dongle. Los siguientes los gestiona `flash.sh` automáticamente.
+
+## Créditos
+
+Firmware basado en [FleaByte](https://github.com/b3rt1ng/FleaByte) de b3rt1ng, publicado bajo licencia MIT.

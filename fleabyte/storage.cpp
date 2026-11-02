@@ -244,9 +244,12 @@ static const OsAlias OS_ALIASES[] = {
   {"darwin", "macos"},  {"apple", "macos"},
 };
 
-static String osTagFor(const String &name) {
+// Reads the first META line of a payload and fills info.os with the
+// normalized OS name and info.category with the optional second word.
+// Example: "META windows broma" -> os="windows", category="broma"
+static void parseMeta(const String &name, PayloadInfo &info) {
   File f = LittleFS.open(pathFor(name), "r");
-  if (!f) return String();
+  if (!f) return;
 
   String head;
   size_t budget = 512;
@@ -270,25 +273,40 @@ static String osTagFor(const String &name) {
     tags.toLowerCase();
     tags.replace(",", " ");
     int tp = 0;
+    bool osFound = false;
     while (tp < (int)tags.length()) {
       while (tp < (int)tags.length() && tags[tp] == ' ') tp++;
       int start = tp;
       while (tp < (int)tags.length() && tags[tp] != ' ') tp++;
       if (tp == start) break;
       String word = tags.substring(start, tp);
-      for (const OsAlias &a : OS_ALIASES) {
-        if (word == a.word) return String(a.os);
+
+      if (!osFound) {
+        for (const OsAlias &a : OS_ALIASES) {
+          if (word == a.word) {
+            info.os = String(a.os);
+            osFound = true;
+            break;
+          }
+        }
+      } else {
+        // First word after the OS tag is the category.
+        info.category = word;
+        return;
       }
     }
+    return;  // Only process the first META line.
   }
-  return String();
 }
 
 const std::vector<PayloadInfo> &storageListDetailed() {
   if (s_metaCacheValid) return s_metaCache;
   s_metaCache.clear();
   for (const String &n : storageList()) {
-    s_metaCache.push_back({n, osTagFor(n)});
+    PayloadInfo info;
+    info.name = n;
+    parseMeta(n, info);
+    s_metaCache.push_back(info);
   }
   s_metaCacheValid = true;
   return s_metaCache;

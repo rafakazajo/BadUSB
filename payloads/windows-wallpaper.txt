@@ -1,0 +1,9 @@
+META windows broma
+REM Title: Rick Wallpaper
+REM Description: Downloads and sets Rick Astley as wallpaper
+
+DEFAULTDELAY 400
+GUI r
+DELAY 500
+STRING powershell -WindowStyle Hidden -Command "$p='$env:TEMP\wp.jpg'; (New-Object Net.WebClient).DownloadFile('https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg',$p); Add-Type -TypeDefinition 'using System;using System.Runtime.InteropServices;public class W{[DllImport(\"user32.dll\")]public static extern bool SystemParametersInfo(int a,int b,string c,int d);}'; [W]::SystemParametersInfo(20,0,$p,3)"
+ENTER

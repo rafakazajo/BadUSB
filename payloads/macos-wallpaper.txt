@@ -1,0 +1,15 @@
+META macos broma
+REM Title: Rick Wallpaper
+REM Description: Downloads and sets Rick Astley as wallpaper on all desktops
+
+DEFAULTDELAY 500
+GUI SPACE
+DELAY 700
+STRING terminal
+ENTER
+DELAY 800
+STRING curl -s "https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg" -o /tmp/wp.jpg && osascript -e 'tell application "System Events" to set picture of every desktop to "/tmp/wp.jpg"'
+ENTER
+DELAY 2000
+STRING exit
+ENTER

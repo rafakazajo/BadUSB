@@ -11,6 +11,7 @@ std::vector<String> storageList();
 struct PayloadInfo {
   String name;
   String os;
+  String category;
 };
 
 const std::vector<PayloadInfo> &storageListDetailed();

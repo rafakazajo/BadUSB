@@ -1,0 +1,9 @@
+META macos broma
+DELAY 1000
+GUI SPACE
+DELAY 700
+STRING safari
+ENTER
+DELAY 1500
+STRING https://www.youtube.com/watch?v=dQw4w9WgXcQ
+ENTER

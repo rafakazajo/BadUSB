@@ -68,7 +68,7 @@ void setup() {
   g_ssid = settings.ssid.isEmpty() ? defaultSsid() : settings.ssid;
   g_password = settings.password.isEmpty() ? storageDefaultPassword() : settings.password;
 
-  WiFi.mode(WIFI_AP);
+  WiFi.mode(WIFI_AP_STA);  // AP_STA, not AP: a WiFi scan needs the STA half of the radio
   WiFi.softAP(g_ssid.c_str(), g_password.c_str(), AP_CHANNEL, 0, AP_MAX_CLIENTS);
 
   Serial.printf("AP %s -> http://%s\n", g_ssid.c_str(), WiFi.softAPIP().toString().c_str());

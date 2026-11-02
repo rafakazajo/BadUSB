@@ -3,3 +3,13 @@ wifi_ducky_s3/build/
 release/
 __pycache__/
 tools/__pycache__/
+*.swp
+*.swo
+# Exports locales
+payloads_export.zip
+payloads_fix.zip
+payloads_fixed/
+
+# Archivos temporales
+*.swp
+*.swo

@@ -1,0 +1,3 @@
+META windows util
+DELAY 500
+GUI l

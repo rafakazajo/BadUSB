@@ -1,0 +1,15 @@
+META macos broma
+DELAY 1000
+GUI SPACE
+DELAY 700
+STRING terminal
+ENTER
+DELAY 1200
+STRING printf '[1;31m
+panic(cpu 0 caller 0xffffff80003a4e1e): Kernel trap at 0xffffff7f82a1c3f0, type 14=Page Fault
+Debugger called: <panic>
+Backtrace (CPU 0), panicked thread: 0xffffff80c0000000
+  Kernel Extensions in backtrace:
+    com.apple.driver.AppleUSBXHCI(810.4.2)
+[0m' && sleep 8 && clear
+ENTER

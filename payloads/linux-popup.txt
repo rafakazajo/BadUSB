@@ -1,0 +1,13 @@
+META linux broma
+REM Title: Fake Error Popup
+REM Description: Shows a fake error popup using zenity or notify-send
+REM Edit the message text as you like
+
+DEFAULTDELAY 500
+CTRL ALT t
+DELAY 800
+STRING zenity --error --title="ERROR CRITICO DEL SISTEMA" --text="Tu ordenador tiene un virus." 2>/dev/null || notify-send -u critical "ERROR CRITICO" "Tu ordenador tiene un virus. Llama al 666-666-666" &
+ENTER
+DELAY 500
+STRING exit
+ENTER
